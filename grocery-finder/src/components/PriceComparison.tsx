@@ -11,7 +11,7 @@ export const PriceComparison: React.FC<PriceComparisonProps> = ({
   searchResult,
   onStoreSelect
 }) => {
-  const { item, stores, bestPrice, averagePrice, priceRange } = searchResult;
+  const { item, stores, averagePrice, priceRange } = searchResult;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {

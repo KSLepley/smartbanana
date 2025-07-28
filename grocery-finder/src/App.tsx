@@ -14,13 +14,18 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   
   const [filters, setFilters] = useState<SearchFilters>({
-    zipCode: '78701',
+    zipCode: '',
     radius: 10,
     maxPrice: undefined,
     inStockOnly: false
   });
 
   const handleItemSelect = async (item: GroceryItem) => {
+    if (!filters.zipCode.trim()) {
+      setError('Please enter a zip code to search for prices.');
+      return;
+    }
+    
     setSelectedItem(item);
     setError(null);
     setIsLoading(true);
@@ -92,7 +97,7 @@ function App() {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <MapPin className="h-4 w-4" />
-                <span>{filters.zipCode}</span>
+                <span>{filters.zipCode || 'Enter zip code'}</span>
               </div>
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <DollarSign className="h-4 w-4" />
