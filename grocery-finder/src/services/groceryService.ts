@@ -1,4 +1,8 @@
 import { Store, GroceryItem, PriceInfo, SearchFilters, SearchResult, StoreItem } from '../types';
+import RealTimePriceService from './realTimePriceService';
+import PriceMonitoringService from './priceMonitoringService';
+import WebScraperService from './webScraperService';
+import StoreSpecificScraper from './storeSpecificScraper';
 
 // Real grocery store chains with their actual geographic presence
 const REAL_STORE_CHAINS = [
@@ -814,7 +818,7 @@ class RealPriceService {
     }
   }
 
-  private static generateRealisticPrice(store: Store, itemId: string): PriceInfo {
+  static generateRealisticPrice(store: Store, itemId: string): PriceInfo {
     const item = REAL_GROCERY_ITEMS.find(i => i.id === itemId);
     if (!item) {
       throw new Error(`Item not found: ${itemId}`);
@@ -906,6 +910,11 @@ class RealPriceService {
 }
 
 export class GroceryService {
+  private static realTimeService = RealTimePriceService.getInstance();
+  private static monitoringService = PriceMonitoringService.getInstance();
+  private static webScraper = WebScraperService.getInstance();
+  private static storeSpecificScraper = StoreSpecificScraper.getInstance();
+
   // Search for items by name
   static async searchItems(query: string): Promise<GroceryItem[]> {
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -925,7 +934,7 @@ export class GroceryService {
     return await RealStoreFinder.findStoresNearZipCode(zipCode, radius);
   }
 
-  // Get real prices for an item across stores
+  // Get real-time prices for an item across stores
   static async getItemPrices(itemId: string, filters: SearchFilters): Promise<SearchResult | null> {
     await new Promise(resolve => setTimeout(resolve, 500));
     
@@ -934,14 +943,36 @@ export class GroceryService {
 
     const stores = await this.getStoresNearZipcode(filters.zipCode, filters.radius);
     
-    const prices = await RealPriceService.getRealPrices(itemId, stores);
+    // Use real-time price service for live prices
+    const realTimePrices = await this.realTimeService.getRealTimePrices([itemId], stores);
+    const prices = realTimePrices.get(itemId) || [];
     
-    const storeItems: StoreItem[] = stores.map((store, index) => ({
-      store,
-      item,
-      priceInfo: prices[index]
-    }));
+    // Fallback to simulated prices if real-time service returns empty
+    if (prices.length === 0) {
+      const simulatedPrices = await RealPriceService.getRealPrices(itemId, stores);
+      const storeItems: StoreItem[] = stores.map((store, index) => ({
+        store,
+        item,
+        priceInfo: simulatedPrices[index]
+      }));
+      
+      return this.processSearchResults(storeItems, filters, item);
+    }
+    
+    const storeItems: StoreItem[] = stores.map((store) => {
+      const priceInfo = prices.find(p => p.storeId === store.id);
+      return {
+        store,
+        item,
+        priceInfo: priceInfo || this.generateFallbackPrice(store, itemId)
+      };
+    });
 
+    return this.processSearchResults(storeItems, filters, item);
+  }
+
+  // Process search results with filtering
+  private static processSearchResults(storeItems: StoreItem[], filters: SearchFilters, item: GroceryItem): SearchResult | null {
     const filteredStoreItems = filters.maxPrice 
       ? storeItems.filter(si => si.priceInfo.price <= filters.maxPrice!)
       : storeItems;
@@ -969,6 +1000,11 @@ export class GroceryService {
     };
   }
 
+  // Generate fallback price when real-time service fails
+  private static generateFallbackPrice(store: Store, itemId: string): PriceInfo {
+    return RealPriceService.generateRealisticPrice(store, itemId);
+  }
+
   // Get popular items
   static async getPopularItems(): Promise<GroceryItem[]> {
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -991,5 +1027,159 @@ export class GroceryService {
     await new Promise(resolve => setTimeout(resolve, 100));
     const categories = REAL_GROCERY_ITEMS.map(item => item.category);
     return Array.from(new Set(categories));
+  }
+
+  // Real-time price monitoring methods
+
+  // Start monitoring prices for an item
+  static startPriceMonitoring(itemId: string, stores: Store[]): void {
+    this.monitoringService.startMonitoring(itemId, stores);
+  }
+
+  // Stop monitoring prices for an item
+  static stopPriceMonitoring(itemId: string, stores: Store[]): void {
+    this.monitoringService.stopMonitoring(itemId, stores);
+  }
+
+  // Get price history for an item at a store
+  static getPriceHistory(itemId: string, storeId: string): any[] {
+    return this.realTimeService.getPriceHistory(itemId, storeId);
+  }
+
+  // Get price trend analysis
+  static getPriceTrend(itemId: string, storeId: string): any {
+    return this.monitoringService.getPriceTrend(itemId, storeId);
+  }
+
+  // Get price prediction
+  static getPricePrediction(itemId: string, storeId: string): any {
+    return this.monitoringService.getPricePrediction(itemId, storeId);
+  }
+
+  // Get best time to buy analysis
+  static async getBestTimeToBuy(itemId: string, storeId: string): Promise<any> {
+    return await this.monitoringService.getBestTimeToBuy(itemId, storeId);
+  }
+
+  // Get price volatility score
+  static getPriceVolatility(itemId: string, storeId: string): number {
+    return this.monitoringService.getPriceVolatility(itemId, storeId);
+  }
+
+  // Get price stability score
+  static getPriceStability(itemId: string, storeId: string): number {
+    return this.monitoringService.getPriceStability(itemId, storeId);
+  }
+
+  // Subscribe to real-time price updates
+  static subscribeToPriceUpdates(itemId: string, storeId: string, callback: (event: any) => void): () => void {
+    return this.realTimeService.subscribeToPriceUpdates(itemId, storeId, callback);
+  }
+
+  // Add price alert
+  static addPriceAlert(alert: any): void {
+    this.realTimeService.addPriceAlert(alert);
+  }
+
+  // Remove price alert
+  static removePriceAlert(alertId: string): void {
+    this.realTimeService.removePriceAlert(alertId);
+  }
+
+  // Get price statistics
+  static getPriceStats(itemId: string, storeId: string): any {
+    return this.realTimeService.getPriceStats(itemId, storeId);
+  }
+
+  // Update monitoring configuration
+  static updateMonitoringConfig(config: any): void {
+    this.monitoringService.updateConfig(config);
+  }
+
+  // Get monitoring configuration
+  static getMonitoringConfig(): any {
+    return this.monitoringService.getConfig();
+  }
+
+  // Web scraping methods
+
+  // Get prices using web scraping
+  static async getPricesFromWebScraping(itemId: string, stores: Store[]): Promise<Map<string, any>> {
+    const item = REAL_GROCERY_ITEMS.find(i => i.id === itemId);
+    if (!item) {
+      throw new Error(`Item not found: ${itemId}`);
+    }
+
+    return await this.webScraper.getPricesFromMultipleStores(stores, item);
+  }
+
+  // Get location-based prices using web scraping
+  static async getLocationBasedPricesFromWebScraping(itemId: string, stores: Store[]): Promise<Map<string, any>> {
+    const item = REAL_GROCERY_ITEMS.find(i => i.id === itemId);
+    if (!item) {
+      throw new Error(`Item not found: ${itemId}`);
+    }
+
+    return await this.storeSpecificScraper.getLocationBasedPricesFromMultipleStores(stores, item);
+  }
+
+  // Get single store price using web scraping
+  static async getStorePriceFromWebScraping(store: Store, itemId: string): Promise<any> {
+    const item = REAL_GROCERY_ITEMS.find(i => i.id === itemId);
+    if (!item) {
+      throw new Error(`Item not found: ${itemId}`);
+    }
+
+    return await this.webScraper.getPriceFromStoreWebsite(store, item);
+  }
+
+  // Get location-based price for single store
+  static async getLocationBasedPriceFromWebScraping(store: Store, itemId: string): Promise<any> {
+    const item = REAL_GROCERY_ITEMS.find(i => i.id === itemId);
+    if (!item) {
+      throw new Error(`Item not found: ${itemId}`);
+    }
+
+    return await this.storeSpecificScraper.getLocationBasedPrice(store, item);
+  }
+
+  // Check if store supports location-based pricing
+  static supportsLocationBasedPricing(storeChain: string): boolean {
+    return this.storeSpecificScraper.supportsLocationBasedPricing(storeChain);
+  }
+
+  // Get supported store chains for web scraping
+  static getSupportedScrapingStores(): string[] {
+    return this.storeSpecificScraper.getSupportedStoreChains();
+  }
+
+  // Get web scraping statistics
+  static getWebScrapingStats(): any {
+    return this.webScraper.getScrapingStats();
+  }
+
+  // Update web scraping configuration
+  static updateWebScrapingConfig(config: any): void {
+    this.webScraper.updateConfig(config);
+  }
+
+  // Get web scraping configuration
+  static getWebScrapingConfig(): any {
+    return this.webScraper.getConfig();
+  }
+
+  // Add proxy for web scraping
+  static addProxy(proxyUrl: string): void {
+    this.webScraper.addProxy(proxyUrl);
+  }
+
+  // Enable/disable proxy usage
+  static setProxyUsage(enabled: boolean): void {
+    this.webScraper.setProxyUsage(enabled);
+  }
+
+  // Clear web scraping statistics
+  static clearWebScrapingStats(): void {
+    this.webScraper.clearStats();
   }
 } 
