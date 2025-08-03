@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/smartbanana/static/css/main.3aecf9de.css",
+    "main.js": "/smartbanana/static/js/main.31608842.js",
+    "static/js/453.45231a4f.chunk.js": "/smartbanana/static/js/453.45231a4f.chunk.js",
+    "index.html": "/smartbanana/index.html",
+    "main.3aecf9de.css.map": "/smartbanana/static/css/main.3aecf9de.css.map",
+    "main.31608842.js.map": "/smartbanana/static/js/main.31608842.js.map",
+    "453.45231a4f.chunk.js.map": "/smartbanana/static/js/453.45231a4f.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.3aecf9de.css",
+    "static/js/main.31608842.js"
+  ]
+}
